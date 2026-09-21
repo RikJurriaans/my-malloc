@@ -47,7 +47,7 @@ int is_valid_addr(void *p);
 
 // malloc reserves a chunk of memory as large as "size"
 // if it can't it returns NULL
-void *malloc(size_t size) {
+void *my_malloc(size_t size) {
   t_block         b, last;
   size_t          s;
   s = align4(size);
@@ -85,7 +85,7 @@ void *malloc(size_t size) {
   return b->data;
 }
 
-void free(void *p) {
+void my_free(void *p) {
   t_block b;
   if (is_valid_addr(p)) {
     b = get_block(p);
@@ -118,7 +118,7 @@ void free(void *p) {
 void *calloc(size_t number, size_t size) {
   size_t        *new;
   size_t         s4,i;
-  new = malloc(number * size);
+  new = my_malloc(number * size);
   if (new) {
     // What does this one exactly mean?
     s4 = align4(number * size) << 2;
@@ -136,7 +136,7 @@ void *realloc(void *p, size_t size) {
   void           *newp;
   // This is funny, this is expected behaviour of realloc, when your ptr is NULL, realloc is basically malloc
   if (!p) {
-    return malloc(size);
+    return my_malloc(size);
   }
   if (is_valid_addr(p)) {
     s = align4(size);
@@ -153,13 +153,13 @@ void *realloc(void *p, size_t size) {
           split_block(b, s);
         }
       } else {
-        newp = malloc(s);
+        newp = my_malloc(s);
         if (!newp) {
           return NULL;
         }
         new = get_block(newp);
         copy_block(b, new);
-        free(p);
+        my_free(p);
         return newp;
       }
     }
@@ -333,7 +333,7 @@ int main(void) {
   // First I need a utility function that can print the current heap layout
   int *a;
 
-  a = malloc(sizeof(int));
+  a = my_malloc(sizeof(int));
   if (a == NULL) {
     printf("ERROR: malloc failed.\n");
   }
@@ -342,29 +342,18 @@ int main(void) {
 
   int *b;
 
-  b = malloc(sizeof(int));
+  b = my_malloc(sizeof(int));
   if (b == NULL) {
     printf("ERROR: malloc failed.\n");
   }
 
   *b = -65433; 
 
-  //char *c;
-
-  //c = malloc(sizeof(char) * 4);
-  //if (c == NULL) {
-  //  printf("ERROR: malloc failed.\n");
-  //}
-  //
-  //strcpy(&c, "Rik");
-
   dump_heap();
   printf("\n\n\n");
 
-
-  free(a);
-  free(b);
-  //free(c);
+  my_free(a);
+  my_free(b);
 
   return 0;
 }
