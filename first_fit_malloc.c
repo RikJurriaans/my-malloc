@@ -178,7 +178,7 @@ void copy_block(t_block src, t_block dst) {
   }
 }
 
-// fusions interface is a bit confusing...
+// fusions interface i+ s a bit confusing...
 // what it basically does is take a block and merge is with the next one.
 t_block fusion(t_block b) {
   if (b->next && b->next->free) {
@@ -216,28 +216,18 @@ t_block find_block(t_block *last, size_t size) {
 }
 
 t_block extend_heap(t_block last, size_t s) {
-  int     sb;
   t_block b;
-
   b = sbrk(0);
-  sb = (int)sbrk(BLOCK_SIZE + s);
 
-  // check if we can reserve a block of memory
-  if (sb < 0) {
+  if (sbrk(BLOCK_SIZE + s) == (void*)-1) {
     return NULL;
   }
-
-  // add size to the meta
   b->size = s;
-  // make b next the last one in the chain
   b->next = NULL;
-  b->prev = last;
-  b->ptr = b->data;
   if (last) {
     last->next = b;
   }
-  b->free = 0; // not free
-
+  b->free = 0;
   return b;
 }
 
