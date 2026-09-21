@@ -336,6 +336,7 @@ int main(void) {
   a = my_malloc(sizeof(int));
   if (a == NULL) {
     printf("ERROR: malloc failed.\n");
+    return 1;
   }
 
   *a = 12332112; 
@@ -345,6 +346,7 @@ int main(void) {
   b = my_malloc(sizeof(int));
   if (b == NULL) {
     printf("ERROR: malloc failed.\n");
+    return 1;
   }
 
   *b = -65433; 
