@@ -6,6 +6,7 @@ Write a tiny program:
 #include <stdio.h>
 #include <stdlib.h>
 
+```
 int main(void) {
   void *p = malloc(4);   // use the REAL malloc here, just to get a real address
   printf("full pointer: %p\n", p);
@@ -13,6 +14,8 @@ int main(void) {
   printf("truncated to int: %d\n", truncated);
   return 0;
 }
+```
+
 Before running it, manually take the hex address it prints, drop everything except the last 8 hex digits, and predict whether the result will look negative (hint: check the very first bit of those last 8 digits). Then run it and see if your prediction matches. Repeat a few times (addresses change each run) until you can reliably predict positive vs. negative just by looking at the top hex digit.
 
 Exercise 2 — Sign bit in isolation, no pointers at all

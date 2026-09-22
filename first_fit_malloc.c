@@ -248,43 +248,24 @@ void split_block(t_block b, size_t s) {
   }
 }
 
-void dump_header(t_block b) {
-  printf("| address: %p, free: %d, size: %zu bytes, next: %p, prev: %p\n", 
-      b, b->free, b->size, b->next, b->prev);
+void dump_header(int block_number, t_block b) {
+  printf("| block_number: %d, address: %p, free: %d, size: %zu bytes, next: %p, prev: %p\n", 
+      block_number, b, b->free, b->size, b->next, b->prev);
 }
 
 void dump_block(t_block b) {
-  int i, total;
+  int i;
 
-  dump_header(b);
-  printf("| value of bytes: \n");
-
-  // Now printing the value on this memory address is very interesting
-  // b->data holds the address of the data (returned by malloc)
-  // b->data[0], 1, 2, 3 hold individual bytes of data
-  // all in binary ofcourse, stored in little endian (because of my computer)
-  // 
-  // So we need to read them byte by byte
-  // and some how add these numbers up
-  // to do this we need to shift the bits into position
-  //
-  // An int in memory takes 4 bytes a byte is 8 bits
-  // so each byte grouping needs to be shifted by 8
-  // because it's little endian the order is reversed
-  // (data[3] << 32) (data[2] << 16) (data[1] << 8) (data[0])
-  
-  total = 0;
   unsigned char *content = b->data;
   for (i = b->size-1; i >= 0; i--) {
-    total |= content[i] << (8 * i);
     printf("%x, \n", content[i]);
   }
-
-  printf("%d\n", total);
 }
 
 void dump_heap() {
-  printf(  " =========================Heap=========================\n");
+  int block_number;
+
+  printf(" =========================Heap=========================\n");
   if (!base) {
     printf("| Heap is empty\n");
     printf(" ======================================================\n");
@@ -295,15 +276,18 @@ void dump_heap() {
   // we walk back from the base to the head of the free list.
   t_block cur;
   cur = base;
+  block_number = 0;
 
-  // This will be a while loop after
   while (cur != NULL) {
-    // wouldn't it be cool if I can find out the type of data
-    dump_block(cur);
-    if (cur->next) {
-      printf(  " ------------------------------------------------------\n");
+    dump_header(block_number, cur);
+    if (cur->free == 0) {
+      dump_block(cur);
+      if (cur->next) {
+        printf(  " ------------------------------------------------------\n");
+      }
     }
     cur = cur->next;
+    block_number++;
   }
 
   printf(" ======================================================\n");
