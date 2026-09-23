@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <stddef.h>
 
 /**
  * General notes:
@@ -11,8 +12,11 @@
  * - What else can I do in virtual memory to really understand what I'm doing
  * - How can I further improve this malloc implementation becuase I'm sure it's wrong...
  *
+ * - I would say however that this is really not easy, actually pretty fucking difficult exercise
+ *
  * This is also part of the journey. I'll start with this implementation, then by myself I do more research, maybe I'll rebuild it a couple of times... Or I get bored with it and move on to the next thing, some parts will be sticky others not so much.
  * I'll probably try to work with this, print the heap, test it. Maybe write a blog post about it. Then I need to build on it by picking another exercise that teaches me a little bit more about the heap and memory.
+ *
  */
 
 // This is pretty important, but I don't fully understand it and I wouldn't have been able to derive this...
@@ -33,6 +37,7 @@ struct s_block {
   char            data[1];
 };
 
+// This is the size of the meta
 #define BLOCK_SIZE 20
 
 // Some helper function prototypes because their implementation is not super important
@@ -58,6 +63,8 @@ void *my_malloc(size_t size) {
     b = find_block(&last, s);
     if (b) {
       // can we split?
+      // I need to re-read this part of the tutorial to understand it deeper
+      // I need to draw this out on paper to visually see what it's actually doing.
       if ((b->size - s) >= (BLOCK_SIZE + 4)) {
         split_block(b, s);
       }
@@ -91,7 +98,6 @@ void my_free(void *p) {
     b = get_block(p);
     b->free = 1; // set our free flag to free.
     // now we check if our previeous is free?
-    if (b->prev && b->prev->free) {
       b = fusion(b->prev);
     }
     if (b->next) {
@@ -233,9 +239,7 @@ t_block extend_heap(t_block last, size_t s) {
 
 void split_block(t_block b, size_t s) {
   t_block new;
-  // oh data[1] is basically the address of the end of the block!!
   new = (t_block)(b->data + s);
-  // I don't really get this math here.
   new->size = b->size - s - BLOCK_SIZE;
   new->next = b->next;
   new->prev = b;
@@ -283,7 +287,7 @@ void dump_heap() {
     if (cur->free == 0) {
       dump_block(cur);
       if (cur->next) {
-        printf(  " ------------------------------------------------------\n");
+        printf(" ------------------------------------------------------\n");
       }
     }
     cur = cur->next;
@@ -303,6 +307,9 @@ int main(void) {
   // what I've learned from doing a couple of malloc tutorials
   //
   // Walking the readers through the steps, testing the different functions.
+  
+  printf("sizeof(struct s_block) = %zu\n", sizeof(struct s_block));
+  printf("offsetof(data)         = %zu\n", offsetof(struct s_block, data));
 
   // First I need a utility function that can print the current heap layout
   int *a;
