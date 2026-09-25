@@ -17,6 +17,11 @@
  * This is also part of the journey. I'll start with this implementation, then by myself I do more research, maybe I'll rebuild it a couple of times... Or I get bored with it and move on to the next thing, some parts will be sticky others not so much.
  * I'll probably try to work with this, print the heap, test it. Maybe write a blog post about it. Then I need to build on it by picking another exercise that teaches me a little bit more about the heap and memory.
  *
+ *
+ * Definitions:
+ * - block: a full memory block with header and memory section
+ * - heap: the full space of virtual memory
+ * - header: the section in our block that contains meta data about the memory block to make free possible
  */
 
 // This is pretty important, but I don't fully understand it and I wouldn't have been able to derive this...
@@ -28,24 +33,26 @@ typedef struct s_block *t_block;
 // The base address from where we start adding addresses to the heap.
 void *base = NULL;
 
+// Structs are always aligned, they will automatically add padding
 struct s_block {
   size_t          size;
   struct s_block *next;
   struct s_block *prev;
+  // thats why it doesn't matter for this to be a 4 byte type
   int             free;
   void           *ptr;
   char            data[1];
 };
 
-// This is the size of the meta
-#define BLOCK_SIZE 20
+// This is the size of the header
+#define HEADER_BLOCK_SIZE 40
 
 // Some helper function prototypes because their implementation is not super important
 // they're very simple anyway
 t_block find_block(t_block *last, size_t size);
 t_block extend_heap(t_block last, size_t s);
 t_block fusion(t_block b);
-t_block get_block(void *p);
+t_block get_header_block(void *p);
 void copy_block(t_block src, t_block dst);
 void split_block(t_block b, size_t s);
 int is_valid_addr(void *p);
@@ -63,9 +70,7 @@ void *my_malloc(size_t size) {
     b = find_block(&last, s);
     if (b) {
       // can we split?
-      // I need to re-read this part of the tutorial to understand it deeper
-      // I need to draw this out on paper to visually see what it's actually doing.
-      if ((b->size - s) >= (BLOCK_SIZE + 4)) {
+      if ((b->size - s) >= (HEADER_BLOCK_SIZE + 4)) {
         split_block(b, s);
       }
       b->free = 0;
@@ -95,9 +100,9 @@ void *my_malloc(size_t size) {
 void my_free(void *p) {
   t_block b;
   if (is_valid_addr(p)) {
-    b = get_block(p);
+    b = get_header_block(p);
     b->free = 1; // set our free flag to free.
-    // now we check if our previeous is free?
+    if (b->prev && b->prev->free) {
       b = fusion(b->prev);
     }
     if (b->next) {
@@ -119,61 +124,6 @@ void my_free(void *p) {
   }
 }
 
-// calloc does malloc for the "size" but times the "number" variable both of which are size_t
-// This is useful if you want to allocate space for an array for example
-void *calloc(size_t number, size_t size) {
-  size_t        *new;
-  size_t         s4,i;
-  new = my_malloc(number * size);
-  if (new) {
-    // What does this one exactly mean?
-    s4 = align4(number * size) << 2;
-    for (i = 0; i < s4; i++) {
-      new[i] = 0;
-    }
-  }
-  return new;
-}
-
-// realloc
-void *realloc(void *p, size_t size) {
-  size_t          s;
-  t_block         b,new;
-  void           *newp;
-  // This is funny, this is expected behaviour of realloc, when your ptr is NULL, realloc is basically malloc
-  if (!p) {
-    return my_malloc(size);
-  }
-  if (is_valid_addr(p)) {
-    s = align4(size);
-    b = get_block(p);
-    if (b->size >= s) {
-      if (b->size - s >= (BLOCK_SIZE + 4)) {
-        split_block(b, s);
-      }
-    } else {
-      if (b->next && b->next->free &&
-          (b->size + BLOCK_SIZE + b->next->size) >= s) {
-        fusion(b);
-        if (b->size - s >= (BLOCK_SIZE + 4)) {
-          split_block(b, s);
-        }
-      } else {
-        newp = my_malloc(s);
-        if (!newp) {
-          return NULL;
-        }
-        new = get_block(newp);
-        copy_block(b, new);
-        my_free(p);
-        return newp;
-      }
-    }
-    return p;
-  }
-  return NULL;
-}
-
 void copy_block(t_block src, t_block dst) {
   int          *sdata, *ddata;
   size_t        i;
@@ -188,7 +138,7 @@ void copy_block(t_block src, t_block dst) {
 // what it basically does is take a block and merge is with the next one.
 t_block fusion(t_block b) {
   if (b->next && b->next->free) {
-    b->size += BLOCK_SIZE + b->next->size;
+    b->size += HEADER_BLOCK_SIZE + b->next->size;
     b->next = b->next->next;
     if (b->next) {
       b->next->prev = b;
@@ -197,16 +147,16 @@ t_block fusion(t_block b) {
   return b;
 }
 
-t_block get_block(void *p) {
+t_block get_header_block(void *p) {
   char *tmp;
   tmp = p;
-  return (p = tmp -= BLOCK_SIZE);
+  return (p = tmp -= HEADER_BLOCK_SIZE);
 }
 
 int is_valid_addr(void *p) {
   if (base) {
     if (p > base && p < sbrk(0)) {
-      return p == (get_block(p))->ptr;
+      return p == (get_header_block(p))->ptr;
     }
   }
   return 0;
@@ -225,7 +175,7 @@ t_block extend_heap(t_block last, size_t s) {
   t_block b;
   b = sbrk(0);
 
-  if (sbrk(BLOCK_SIZE + s) == (void*)-1) {
+  if (sbrk(HEADER_BLOCK_SIZE + s) == (void*)-1) {
     return NULL;
   }
   b->size = s;
@@ -240,7 +190,7 @@ t_block extend_heap(t_block last, size_t s) {
 void split_block(t_block b, size_t s) {
   t_block new;
   new = (t_block)(b->data + s);
-  new->size = b->size - s - BLOCK_SIZE;
+  new->size = b->size - s - HEADER_BLOCK_SIZE;
   new->next = b->next;
   new->prev = b;
   new->free = 1;
@@ -297,6 +247,10 @@ void dump_heap() {
   printf(" ======================================================\n");
 }
 
+// Tests
+// - we need to test that malloc works, allocates some memory that should be the exact size of what we requested, free flag needs to be 1
+// - we need to test freeing that memory, the free flag of that block should be set to 1
+// - we need to test mallocing 2 variables, you should be able to see both of them in memory with the correct headers
 int main(void) {
   // the biggest dissapointment of this tutorial I think is the lack of
   // testing that you do, I much rather test step by step and thats how
@@ -337,6 +291,11 @@ int main(void) {
 
   my_free(a);
   my_free(b);
+
+  // TODO: fix free
+
+  dump_heap();
+  printf("\n\n\n");
 
   return 0;
 }
